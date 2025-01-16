@@ -25,7 +25,7 @@ int map[MAP_HEIGHT][MAP_WIDTH] = {
 	{0,0,0,0,1,0,0,0,0,0,0,0},
 };
 
-void rotate(Eigen::Vector2d& vec, double rads);
+Eigen::Vector2d rotate(Eigen::Vector2d vec, double rads);
 
 int main() {
 
@@ -84,33 +84,36 @@ int main() {
 		if (acc >= 1000 / FPS) {
 			acc = 0;
 			ticks++;
-		
-			// setup
-			Eigen::Vector2d mapPos(int(pos.x()/FAKE_TILE_SIZE), int(pos.y()/FAKE_TILE_SIZE));
 
+            std::pair<int, int> mapPos(int(pos.x()), int(pos.y()));
+		
 			// input
 			auto keyS = SDL_GetKeyboardState(NULL);
 
+            // @todo: When the player collides with a wall, move them out
+
 			if (keyS[SDL_SCANCODE_W]) {
-				// @todo: GETERRR DONE
-				pos(0) += dir(0) * movSp;					
-				pos(1) += dir(1) * movSp;					
+				if (map[mapPos.second][int(pos.x() + dir.x() * movSp)] < 1) pos(0) += dir.x() * movSp;					
+				if (map[int(pos.y() + dir.y() * movSp)][mapPos.first] < 1) pos(1) += dir.y() * movSp;					
 			}
 			if (keyS[SDL_SCANCODE_A]) {
-			
+                if (map[mapPos.second][int(pos.x() - rotate(dir, M_PI/2).x() * movSp)] < 1) pos(0) -= rotate(dir, M_PI/2).x() * movSp;
+                if (map[int(pos.y() - rotate(dir, M_PI/2).y() * movSp)][mapPos.first] < 1) pos(1) -= rotate(dir, M_PI/2).y() * movSp;
 			}
 			if (keyS[SDL_SCANCODE_S]) {
-			
+                if (map[mapPos.second][int(pos.x() - dir.x() * movSp)] < 1) pos(0) -= dir.x() * movSp;					
+				if (map[int(pos.y() - dir.y() * movSp)][mapPos.first] < 1) pos(1) -= dir.y() * movSp;	
 			}
 			if (keyS[SDL_SCANCODE_D]) {
-				
+				if (map[mapPos.second][int(pos.x() + rotate(dir, M_PI/2).x() * movSp)] < 1) pos(0) += rotate(dir, M_PI/2).x() * movSp;
+                if (map[int(pos.y() + rotate(dir, M_PI/2).y() * movSp)][mapPos.first] < 1) pos(1) += rotate(dir, M_PI/2).y() * movSp;
 			}
 
 			if (keyS[SDL_SCANCODE_LEFT]) {
-				rotate(dir, -turnSp);
+				dir = rotate(dir, -turnSp);
 			}
 			if (keyS[SDL_SCANCODE_RIGHT]) {
-				rotate(dir, turnSp);
+				dir = rotate(dir, turnSp);
 			}
 		}
 			
@@ -163,11 +166,11 @@ int main() {
 	return 0;
 }
 
-void rotate(Eigen::Vector2d& vec, double rads) {
+Eigen::Vector2d rotate(Eigen::Vector2d vec, double rads) {
 	
 	Eigen::Matrix2d rotMat;
 	rotMat << std::cos(rads), -std::sin(rads),
 	       std::sin(rads), std::cos(rads);
 	
-	vec = rotMat * vec; 
+	return rotMat * vec; 
 }
