@@ -14,8 +14,8 @@
 int map[MAP_HEIGHT][MAP_WIDTH] = {
 	{1,0,0,0,0,0,0,0,0,0,0,0},
 	{0,0,0,0,0,0,0,0,0,0,0,0},
-	{0,0,0,0,0,0,0,0,0,0,0,0},
-	{0,0,1,0,0,0,0,0,0,0,0,0},
+	{0,0,0,0,0,0,0,1,0,0,0,0},
+	{0,1,0,0,0,0,0,1,0,0,0,0},
 	{0,0,0,0,0,0,0,0,0,0,0,0},
 	{0,0,0,0,0,0,0,0,0,0,0,0},
 	{0,0,0,0,0,0,0,0,0,0,0,0},
@@ -31,9 +31,9 @@ typedef struct {
     double y1;
     double x2;
     double y2;
-} line;
+} Line;
 
-line rays[COLUMNS];
+Line rays[COLUMNS];
 
 Eigen::Vector2d rotate(Eigen::Vector2d vec, double rads);
 
@@ -129,10 +129,33 @@ int main() {
 			}
 
             // Cast the Rays
-            Eigen::Vector2d rayPos(pos);
+            std::pair<double, double> rayPos = {pos.x(), pos.y()};
+			std::pair<double, double> wallDist;
+
+			// right @todo: switch degrees to radians
+			if (dir.x() < 270 && dir.x() > 90) {
+				wallDist.first = 1 - (pos.x() - mapPos.first);
+			
+			// left
+			} else {
+				wallDist.first = pos.x() - mapPos.first;
+			}
+
+			// up @todo: switch degrees to radians
+			if (dir.y() < 180 && dir.y() > 0) {
+				wallDist.second = 1 - (pos.y() - mapPos.second);
+			}
+
+
+			Line l = {
+				pos.x(), pos.y(),
+				pos.x() + dir.x() * renderDis,
+				pos.y() + dir.y() * renderDis,
+			};
+
 			// @todo: The ray needs to be relative to the players position, not just the grid
-            double dx = (pos.x() + dir.x() * renderDis) - pos.x();
-            double dy = (pos.y() + dir.y() * renderDis) - pos.y();
+            double dx = l.x2 - l.x1;
+            double dy = l.y2 - l.y1;
 			double step;
 
             abs(dx) >= abs(dy) ? step = abs(dx) : step = abs(dy);
@@ -141,15 +164,17 @@ int main() {
   			dy /= step;
 
 			for (int i = 0; i <= int(step); i++) {
-				rayPos(0) += dx; 
-				rayPos(1) += dy;
+				rayPos.first += dx; 
+				rayPos.second += dy;
 
-				if (int(rayPos(0)) > MAP_WIDTH || int(rayPos(0)) < 0) break;
-				if (int(rayPos(1)) > MAP_HEIGHT || int(rayPos(1)) < 0) break;
+				if ((int(rayPos.first) > MAP_WIDTH || int(rayPos.first) < 0) ||
+					(int(rayPos.second) > MAP_HEIGHT || int(rayPos.second) < 0)) {
+					rays[0] = {l.x1, l.y1, l.x2, l.y2}; break;
+				}
 
-				if (map[int(rayPos(1))][int(rayPos(0))] > 0) {
+				if (map[int(rayPos.second)][int(rayPos.first)] > 0) {
 					
-					rays[0] = {pos.x(), pos.y(), rayPos(0), rayPos(1)};
+					rays[0] = {l.x1, l.y1, rayPos.first, rayPos.second};
 					break;
 				}
 			}
