@@ -7,6 +7,7 @@
 #define FAKE_TILE_SIZE 64 // for drawing to the screen, real tile size is 1
 #define WIN_WIDTH FAKE_TILE_SIZE*MAP_WIDTH
 #define WIN_HEIGHT FAKE_TILE_SIZE*MAP_HEIGHT
+#define COLUMNS 66
 
 #define FPS 60
 
@@ -24,6 +25,15 @@ int map[MAP_HEIGHT][MAP_WIDTH] = {
 	{0,0,0,0,0,0,0,0,0,0,0,0},
 	{0,0,0,0,1,0,0,0,0,0,0,0},
 };
+
+typedef struct {
+    double x1;
+    double y1;
+    double x2;
+    double y2;
+} line;
+
+line rays[COLUMNS];
 
 Eigen::Vector2d rotate(Eigen::Vector2d vec, double rads);
 
@@ -63,6 +73,7 @@ int main() {
 	double movSp = .05;
 	double turnSp = .1;
 	double lineLen = 26;
+    double renderDis = 100;
 
 	while (running) {
 		while (SDL_PollEvent(&e)) {
@@ -90,6 +101,7 @@ int main() {
 			// input
 			auto keyS = SDL_GetKeyboardState(NULL);
 
+            // @todo: Delta Time???
             // @todo: When the player collides with a wall, move them out
 
 			if (keyS[SDL_SCANCODE_W]) {
@@ -115,7 +127,33 @@ int main() {
 			if (keyS[SDL_SCANCODE_RIGHT]) {
 				dir = rotate(dir, turnSp);
 			}
-		}
+
+            // Cast the Rays
+            Eigen::Vector2d rayPos(pos);
+			// @todo: The ray needs to be relative to the players position, not just the grid
+            double dx = (pos.x() + dir.x() * renderDis) - pos.x();
+            double dy = (pos.y() + dir.y() * renderDis) - pos.y();
+			double step;
+
+            abs(dx) >= abs(dy) ? step = abs(dx) : step = abs(dy);
+
+			dx /= step;
+  			dy /= step;
+
+			for (int i = 0; i <= int(step); i++) {
+				rayPos(0) += dx; 
+				rayPos(1) += dy;
+
+				if (int(rayPos(0)) > MAP_WIDTH || int(rayPos(0)) < 0) break;
+				if (int(rayPos(1)) > MAP_HEIGHT || int(rayPos(1)) < 0) break;
+
+				if (map[int(rayPos(1))][int(rayPos(0))] > 0) {
+					
+					rays[0] = {pos.x(), pos.y(), rayPos(0), rayPos(1)};
+					break;
+				}
+			}
+        }
 			
 		//////////
 		// DRAW //
@@ -154,7 +192,9 @@ int main() {
 		// Line
 		SDL_RenderDrawLine(ren, int(screenPos.x()), int(screenPos.y()),
 								int((screenPos.x()+dir.x()*lineLen)), (int(screenPos.y()+dir.y()*lineLen)));
-				
+
+		// rays
+		SDL_RenderDrawLine(ren, rays[0].x1*FAKE_TILE_SIZE, rays[0].y1*FAKE_TILE_SIZE, rays[0].x2*FAKE_TILE_SIZE, rays[0].y2*FAKE_TILE_SIZE);
 
 		SDL_RenderPresent(ren);
 	}
