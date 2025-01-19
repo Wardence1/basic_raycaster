@@ -1,6 +1,7 @@
 #include <iostream>
 #include <eigen3/Eigen/Core>
 #include <SDL2/SDL.h>
+#include <cmath>
 
 #define MAP_WIDTH 12
 #define MAP_HEIGHT 12
@@ -11,19 +12,21 @@
 
 #define FPS 60
 
+#define DEGREE 0.0174533
+
 int map[MAP_HEIGHT][MAP_WIDTH] = {
-	{1,0,0,0,0,0,0,0,0,0,0,0},
-	{0,0,0,0,0,0,0,0,0,0,0,0},
-	{0,0,0,0,0,0,0,1,0,0,0,0},
-	{0,1,0,0,0,0,0,1,0,0,0,0},
-	{0,0,0,0,0,0,0,0,0,0,0,0},
-	{0,0,0,0,0,0,0,0,0,0,0,0},
-	{0,0,0,0,0,0,0,0,0,0,0,0},
-	{0,0,0,0,0,0,0,0,0,1,0,0},
-	{0,0,0,0,0,0,0,0,0,0,0,0},
-	{0,0,0,0,0,0,0,0,0,0,0,0},
-	{0,0,0,0,0,0,0,0,0,0,0,0},
-	{0,0,0,0,1,0,0,0,0,0,0,0},
+	{1,1,1,1,1,1,1,1,1,1,1,1},
+	{1,0,0,0,0,0,0,0,0,0,0,1},
+	{1,0,0,0,0,0,0,1,0,0,0,1},
+	{1,1,0,0,0,0,0,1,0,0,0,1},
+	{1,0,0,0,0,0,0,0,0,0,0,1},
+	{1,0,0,0,0,0,0,0,0,0,0,1},
+	{1,0,0,0,0,0,0,0,0,0,0,1},
+	{1,0,0,0,0,0,0,0,0,1,0,1},
+	{1,0,0,0,0,0,0,0,0,0,0,1},
+	{1,0,0,0,0,0,0,0,0,0,0,1},
+	{1,0,0,0,0,0,0,0,0,0,0,1},
+	{1,1,1,1,1,1,1,1,1,1,1,1},
 };
 
 typedef struct {
@@ -73,7 +76,7 @@ int main() {
 	double movSp = .05;
 	double turnSp = .1;
 	double lineLen = 26;
-    double renderDis = 100;
+    double renderDis = 20*100;
 
 	while (running) {
 		while (SDL_PollEvent(&e)) {
@@ -98,7 +101,7 @@ int main() {
 
             std::pair<int, int> mapPos(int(pos.x()), int(pos.y()));
 		
-			// input
+			/* INPUT */
 			auto keyS = SDL_GetKeyboardState(NULL);
 
             // @todo: Delta Time???
@@ -128,54 +131,41 @@ int main() {
 				dir = rotate(dir, turnSp);
 			}
 
-            // Cast the Rays
-            std::pair<double, double> rayPos = {pos.x(), pos.y()};
-			std::pair<double, double> wallDist;
+            /* CAST THE RAYS */
+			for (int i = 0; i < COLUMNS; i++) {
 
-			// right @todo: switch degrees to radians
-			if (dir.x() < 270 && dir.x() > 90) {
-				wallDist.first = 1 - (pos.x() - mapPos.first);
-			
-			// left
-			} else {
-				wallDist.first = pos.x() - mapPos.first;
-			}
+            	std::pair<double, double> rayPos = {pos.x(), pos.y()};
 
-			// up @todo: switch degrees to radians
-			if (dir.y() < 180 && dir.y() > 0) {
-				wallDist.second = 1 - (pos.y() - mapPos.second);
-			}
+				Line l = {
+					pos.x(), pos.y(),
+					(pos.x() + dir.x() * renderDis),
+					(pos.y() + dir.y() * renderDis),
+				};
 
+            	double dx = l.x2 - l.x1;
+            	double dy = l.y2 - l.y1;
 
-			Line l = {
-				pos.x(), pos.y(),
-				pos.x() + dir.x() * renderDis,
-				pos.y() + dir.y() * renderDis,
-			};
+				dx = dir.x() + DEGREE * i;
+  				dy = dir.y() + DEGREE * i;
 
-			// @todo: The ray needs to be relative to the players position, not just the grid
-            double dx = l.x2 - l.x1;
-            double dy = l.y2 - l.y1;
-			double step;
+				for (int j = 0; j <= renderDis; j++) {
 
-            abs(dx) >= abs(dy) ? step = abs(dx) : step = abs(dy);
+					// @optimize: This checks for wall collisions at every few pixels of the line, check at every tile edge instead.
+					rayPos.first += dx/100;
+					rayPos.second += dy/100;
 
-			dx /= step;
-  			dy /= step;
+					if ((int(rayPos.first) > MAP_WIDTH || int(rayPos.first) < 0) ||
+						(int(rayPos.second) > MAP_HEIGHT || int(rayPos.second) < 0)) {
 
-			for (int i = 0; i <= int(step); i++) {
-				rayPos.first += dx; 
-				rayPos.second += dy;
+						rays[i] = {l.x1, l.y1, l.x2, l.y2};
+						break;
+					}
 
-				if ((int(rayPos.first) > MAP_WIDTH || int(rayPos.first) < 0) ||
-					(int(rayPos.second) > MAP_HEIGHT || int(rayPos.second) < 0)) {
-					rays[0] = {l.x1, l.y1, l.x2, l.y2}; break;
-				}
+					if (map[int(rayPos.second)][int(rayPos.first)] > 0) {
 
-				if (map[int(rayPos.second)][int(rayPos.first)] > 0) {
-					
-					rays[0] = {l.x1, l.y1, rayPos.first, rayPos.second};
-					break;
+						rays[i] = {l.x1, l.y1, rayPos.first, rayPos.second};
+						break;
+					}
 				}
 			}
         }
@@ -206,20 +196,25 @@ int main() {
 			}
 		}
 
-		// Player	
+		// Rays
+		SDL_SetRenderDrawColor(ren, 255, 255, 255, 255);
+		for (int i = 0; i < COLUMNS; i++) {
+			SDL_RenderDrawLine(ren, rays[i].x1*FAKE_TILE_SIZE, rays[i].y1*FAKE_TILE_SIZE, rays[i].x2*FAKE_TILE_SIZE, rays[i].y2*FAKE_TILE_SIZE);
+		}
+
+		// Player
 		rect.w = 8;
 		rect.h = 8;
 		rect.x = screenPos.x()-rect.w/2;
 		rect.y = screenPos.y()-rect.h/2;
-
-		SDL_SetRenderDrawColor(ren, 255, 255, 255, 255);
+		SDL_SetRenderDrawColor(ren, 255, 0, 0, 255);
 		SDL_RenderFillRect(ren, &rect);
+
 		// Line
+		SDL_SetRenderDrawColor(ren, 255, 0, 0, 255);
 		SDL_RenderDrawLine(ren, int(screenPos.x()), int(screenPos.y()),
 								int((screenPos.x()+dir.x()*lineLen)), (int(screenPos.y()+dir.y()*lineLen)));
 
-		// rays
-		SDL_RenderDrawLine(ren, rays[0].x1*FAKE_TILE_SIZE, rays[0].y1*FAKE_TILE_SIZE, rays[0].x2*FAKE_TILE_SIZE, rays[0].y2*FAKE_TILE_SIZE);
 
 		SDL_RenderPresent(ren);
 	}
