@@ -145,8 +145,9 @@ int main() {
             	double dx = l.x2 - l.x1;
             	double dy = l.y2 - l.y1;
 
-				dx = dir.x() + DEGREE * i;
-  				dy = dir.y() + DEGREE * i;
+				dx = rotate(dir, (DEGREE*i) - DEGREE * (COLUMNS/2)).x();
+  				dy = rotate(dir, (DEGREE*i) - DEGREE * (COLUMNS/2)).y();
+
 
 				for (int j = 0; j <= renderDis; j++) {
 
