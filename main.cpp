@@ -91,9 +91,14 @@ int main() {
 					running = false;
 					break;
 				case SDL_KEYDOWN:
-					if (e.key.keysym.sym == SDLK_SPACE) {
-                    	debug = !debug;
-                }
+					switch(e.key.keysym.sym) {
+						case SDLK_SPACE:
+							debug = !debug;
+							break;
+						case SDLK_ESCAPE:
+							running = false;
+							break;
+					}
 			}
 		}
 
@@ -141,9 +146,30 @@ int main() {
 				dir = rotate(dir, turnSp);
 			}
 
+			/* DRAW FIRST PERSON ROOF AND FLOOR */
+			if (!debug) {
+				SDL_RenderClear(ren);
+
+				SDL_Rect roof;
+				roof.x = 0;
+				roof.y = 0;
+				roof.w = WIN_WIDTH;
+				roof.h = WIN_HEIGHT/2;
+				SDL_SetRenderDrawColor(ren, 82, 82, 82, 255);
+				SDL_RenderFillRect(ren, &roof);
+
+				SDL_Rect floor;
+				floor.x = 0;
+				floor.y = WIN_HEIGHT/2;
+				floor.w = WIN_WIDTH;
+				floor.h = WIN_HEIGHT/2;
+				SDL_SetRenderDrawColor(ren, 142, 142, 142, 255);
+				SDL_RenderFillRect(ren, &floor);
+
+				SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
+			}
+
             /* CAST THE RAYS */
-			SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
-			SDL_RenderClear(ren);
 			for (int i = 0; i < COLUMNS; i++) {
 
             	std::pair<double, double> rayPos = {pos.x(), pos.y()};
@@ -179,9 +205,6 @@ int main() {
 							distance *= dir.dot(rayDir); // fix fisheye
 							int type = map[int(rayPos.second)][int(rayPos.first)];
 
-							// @todo
-							//char wallDir; // 'u': up, 'd': down, 'l': left, 'r': right
-
 							switch(type) {
 								case 1:
 									SDL_SetRenderDrawColor(ren, 255, 255, 255, 255);
@@ -203,13 +226,11 @@ int main() {
 									break;
 							}
 
-
 							SDL_Rect column;
 							column.x = i * COLUMN_WIDTH;
 							column.w = COLUMN_WIDTH + 1;
 							column.h = WIN_HEIGHT / distance;
 							column.y = WIN_HEIGHT/2 - column.h/2;
-
 							SDL_RenderFillRect(ren, &column);
 
 						} else {
