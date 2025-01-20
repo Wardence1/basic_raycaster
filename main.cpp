@@ -9,23 +9,26 @@
 #define WIN_WIDTH FAKE_TILE_SIZE*MAP_WIDTH
 #define WIN_HEIGHT FAKE_TILE_SIZE*MAP_HEIGHT
 #define COLUMNS 66
+#define COLUMN_WIDTH WIN_WIDTH/COLUMNS
 
 #define FPS 60
 
 #define DEGREE 0.0174533
 
+bool debug = false;
+
 int map[MAP_HEIGHT][MAP_WIDTH] = {
 	{1,1,1,1,1,1,1,1,1,1,1,1},
+	{1,0,0,0,0,0,2,0,0,0,0,1},
 	{1,0,0,0,0,0,0,0,0,0,0,1},
-	{1,0,0,0,0,0,0,1,0,0,0,1},
-	{1,1,0,0,0,0,0,1,0,0,0,1},
-	{1,0,0,0,0,0,0,0,0,0,0,1},
-	{1,0,0,0,0,0,0,0,0,0,0,1},
-	{1,0,0,0,0,0,0,0,0,0,0,1},
-	{1,0,0,0,0,0,0,0,0,1,0,1},
+	{1,0,0,0,0,0,2,0,0,0,0,1},
+	{1,0,0,0,0,0,1,0,0,0,0,1},
 	{1,0,0,0,0,0,0,0,0,0,0,1},
 	{1,0,0,0,0,0,0,0,0,0,0,1},
-	{1,0,0,0,0,0,0,0,0,0,0,1},
+	{1,0,0,0,0,0,1,0,0,0,0,2},
+	{1,0,0,0,0,0,1,0,0,0,0,1},
+	{1,0,0,0,0,0,0,0,0,2,0,1},
+	{1,2,0,0,0,0,0,0,0,0,2,1},
 	{1,1,1,1,1,1,1,1,1,1,1,1},
 };
 
@@ -132,90 +135,122 @@ int main() {
 			}
 
             /* CAST THE RAYS */
+			SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
+			SDL_RenderClear(ren);
 			for (int i = 0; i < COLUMNS; i++) {
 
             	std::pair<double, double> rayPos = {pos.x(), pos.y()};
 
-				Line l = {
-					pos.x(), pos.y(),
-					(pos.x() + dir.x() * renderDis),
-					(pos.y() + dir.y() * renderDis),
-				};
-
-            	double dx = l.x2 - l.x1;
-            	double dy = l.y2 - l.y1;
-
-				dx = rotate(dir, (DEGREE*i) - DEGREE * (COLUMNS/2)).x();
-  				dy = rotate(dir, (DEGREE*i) - DEGREE * (COLUMNS/2)).y();
-
+				double rayDirX = rotate(dir, (DEGREE*i) - DEGREE * (COLUMNS/2)).x();
+  				double rayDirY = rotate(dir, (DEGREE*i) - DEGREE * (COLUMNS/2)).y();
 
 				for (int j = 0; j <= renderDis; j++) {
 
 					// @optimize: This checks for wall collisions at every few pixels of the line, check at every tile edge instead.
-					rayPos.first += dx/100;
-					rayPos.second += dy/100;
+					rayPos.first += rayDirX/100;
+					rayPos.second += rayDirY/100;
 
 					if ((int(rayPos.first) > MAP_WIDTH || int(rayPos.first) < 0) ||
 						(int(rayPos.second) > MAP_HEIGHT || int(rayPos.second) < 0)) {
 
-						rays[i] = {l.x1, l.y1, l.x2, l.y2};
-						break;
+						perror("Ray went out of bounds\n");
+						return 1;
 					}
 
 					if (map[int(rayPos.second)][int(rayPos.first)] > 0) {
 
-						rays[i] = {l.x1, l.y1, rayPos.first, rayPos.second};
+
+						///////////////////////
+						// DRAW FIRST PERSON //
+						///////////////////////
+
+						if (!debug) {
+
+							double distance = sqrt(pow(rayPos.first - pos.x(), 2) + pow(rayPos.second - pos.y(), 2));
+							int type = map[int(rayPos.second)][int(rayPos.first)];
+
+							// @todo
+							//char wallDir; // 'u': up, 'd': down, 'l': left, 'r': right
+
+							switch(type) {
+								case 1:
+									SDL_SetRenderDrawColor(ren, 255, 255, 255, 255);
+									break;
+								case 2:
+									SDL_SetRenderDrawColor(ren, 255, 0, 0, 255);
+									break;
+								default:
+									fprintf(stderr, "Invalid wall type: %d\n", type);
+									return 1;
+							}
+
+
+							SDL_Rect column;
+							column.x = i * COLUMN_WIDTH;
+							column.w = COLUMN_WIDTH + 1;
+							column.h = WIN_HEIGHT - distance*50;
+							column.y = WIN_HEIGHT/2 - column.h/2;
+
+							SDL_RenderFillRect(ren, &column);
+
+						} else {
+
+							rays[i] = {pos.x(), pos.y(), rayPos.first, rayPos.second};
+						}
+
 						break;
 					}
 				}
 			}
         }
 			
-		//////////
-		// DRAW //
-		//////////
-		Eigen::Vector2d screenPos(pos*FAKE_TILE_SIZE);
-		SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
-		SDL_RenderClear(ren);
+		////////////////
+		// DRAW DEBUG //
+		////////////////
+		if (debug) {
+			Eigen::Vector2d screenPos(pos*FAKE_TILE_SIZE);
+			SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
+			SDL_RenderClear(ren);
 
-		SDL_Rect rect; // multi-purpose rect
-		// Grid
-		for (int x = 0; x < MAP_WIDTH; x++) {
-			for (int y = 0; y < MAP_HEIGHT; y++) {
-				rect.x = x * FAKE_TILE_SIZE;
-				rect.y = y * FAKE_TILE_SIZE;
-				rect.w = FAKE_TILE_SIZE - 2;
-				rect.h = FAKE_TILE_SIZE - 2;
-		
-				if (map[y][x] == 1) {
-					SDL_SetRenderDrawColor(ren, 0, 0, 122, 255);
-					SDL_RenderFillRect(ren, &rect);
-				} else {
-					SDL_SetRenderDrawColor(ren, 22, 22, 22, 255);
-					SDL_RenderFillRect(ren, &rect);
+			SDL_Rect rect; // multi-purpose rect
+			// Grid
+			for (int x = 0; x < MAP_WIDTH; x++) {
+				for (int y = 0; y < MAP_HEIGHT; y++) {
+					rect.x = x * FAKE_TILE_SIZE;
+					rect.y = y * FAKE_TILE_SIZE;
+					rect.w = FAKE_TILE_SIZE - 2;
+					rect.h = FAKE_TILE_SIZE - 2;
+
+					if (map[y][x] == 1) {
+						SDL_SetRenderDrawColor(ren, 0, 0, 122, 255);
+						SDL_RenderFillRect(ren, &rect);
+					} else {
+						SDL_SetRenderDrawColor(ren, 22, 22, 22, 255);
+						SDL_RenderFillRect(ren, &rect);
+					}
 				}
 			}
+
+			// Rays
+			SDL_SetRenderDrawColor(ren, 255, 255, 255, 255);
+			for (int i = 0; i < COLUMNS; i++) {
+				SDL_RenderDrawLine(ren, rays[i].x1*FAKE_TILE_SIZE, rays[i].y1*FAKE_TILE_SIZE, rays[i].x2*FAKE_TILE_SIZE, rays[i].y2*FAKE_TILE_SIZE);
+			}
+
+			// Player
+			rect.w = 8;
+			rect.h = 8;
+			rect.x = screenPos.x()-rect.w/2;
+			rect.y = screenPos.y()-rect.h/2;
+			SDL_SetRenderDrawColor(ren, 255, 0, 0, 255);
+			SDL_RenderFillRect(ren, &rect);
+
+			// Line
+			SDL_SetRenderDrawColor(ren, 255, 0, 0, 255);
+			SDL_RenderDrawLine(ren, int(screenPos.x()), int(screenPos.y()),
+									int((screenPos.x()+dir.x()*lineLen)), (int(screenPos.y()+dir.y()*lineLen)));
+
 		}
-
-		// Rays
-		SDL_SetRenderDrawColor(ren, 255, 255, 255, 255);
-		for (int i = 0; i < COLUMNS; i++) {
-			SDL_RenderDrawLine(ren, rays[i].x1*FAKE_TILE_SIZE, rays[i].y1*FAKE_TILE_SIZE, rays[i].x2*FAKE_TILE_SIZE, rays[i].y2*FAKE_TILE_SIZE);
-		}
-
-		// Player
-		rect.w = 8;
-		rect.h = 8;
-		rect.x = screenPos.x()-rect.w/2;
-		rect.y = screenPos.y()-rect.h/2;
-		SDL_SetRenderDrawColor(ren, 255, 0, 0, 255);
-		SDL_RenderFillRect(ren, &rect);
-
-		// Line
-		SDL_SetRenderDrawColor(ren, 255, 0, 0, 255);
-		SDL_RenderDrawLine(ren, int(screenPos.x()), int(screenPos.y()),
-								int((screenPos.x()+dir.x()*lineLen)), (int(screenPos.y()+dir.y()*lineLen)));
-
 
 		SDL_RenderPresent(ren);
 	}
