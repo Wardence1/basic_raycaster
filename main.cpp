@@ -16,6 +16,7 @@
 #define DEGREE 0.0174533
 
 bool debug = false;
+int accuracy = 300;
 
 int map[MAP_HEIGHT][MAP_WIDTH] = {
 	{1,1,1,1,1,1,1,1,1,1,1,1},
@@ -42,6 +43,8 @@ typedef struct {
 Line rays[COLUMNS];
 
 Eigen::Vector2d rotate(Eigen::Vector2d vec, double rads);
+char getSide(Eigen::Vector2d rayPos, Eigen::Vector2d dir);
+void lowerColor(SDL_Renderer* ren, Uint8 lower);
 
 int main() {
 
@@ -79,7 +82,7 @@ int main() {
 	double movSp = .05;
 	double turnSp = .1;
 	double lineLen = 26;
-    double renderDis = 20*100;
+    double renderDis = 20*accuracy;
 
 	while (running) {
 		while (SDL_PollEvent(&e)) {
@@ -87,6 +90,10 @@ int main() {
 				case SDL_QUIT:
 					running = false;
 					break;
+				case SDL_KEYDOWN:
+					if (e.key.keysym.sym == SDLK_SPACE) {
+                    	debug = !debug;
+                }
 			}
 		}
 
@@ -141,14 +148,16 @@ int main() {
 
             	std::pair<double, double> rayPos = {pos.x(), pos.y()};
 
-				double rayDirX = rotate(dir, (DEGREE*i) - DEGREE * (COLUMNS/2)).x();
-  				double rayDirY = rotate(dir, (DEGREE*i) - DEGREE * (COLUMNS/2)).y();
+				Eigen::Vector2d rayDir;
+
+				rayDir(0) = rotate(dir, (DEGREE*i) - DEGREE * (COLUMNS/2)).x();
+  				rayDir(1) = rotate(dir, (DEGREE*i) - DEGREE * (COLUMNS/2)).y();
 
 				for (int j = 0; j <= renderDis; j++) {
 
 					// @optimize: This checks for wall collisions at every few pixels of the line, check at every tile edge instead.
-					rayPos.first += rayDirX/100;
-					rayPos.second += rayDirY/100;
+					rayPos.first += rayDir.x()/accuracy;
+					rayPos.second += rayDir.y()/accuracy;
 
 					if ((int(rayPos.first) > MAP_WIDTH || int(rayPos.first) < 0) ||
 						(int(rayPos.second) > MAP_HEIGHT || int(rayPos.second) < 0)) {
@@ -184,11 +193,20 @@ int main() {
 									return 1;
 							}
 
+							switch (getSide(Eigen::Vector2d(rayPos.first, rayPos.second), rayDir)) {
+								case 'b':
+									lowerColor(ren, 80);
+									break;
+								case 't':
+									lowerColor(ren, 80);
+									break;
+							}
+
 
 							SDL_Rect column;
 							column.x = i * COLUMN_WIDTH;
 							column.w = COLUMN_WIDTH + 1;
-							column.h = WIN_HEIGHT - distance*50;
+							column.h = WIN_HEIGHT / distance;
 							column.y = WIN_HEIGHT/2 - column.h/2;
 
 							SDL_RenderFillRect(ren, &column);
@@ -207,6 +225,7 @@ int main() {
 		////////////////
 		// DRAW DEBUG //
 		////////////////
+
 		if (debug) {
 			Eigen::Vector2d screenPos(pos*FAKE_TILE_SIZE);
 			SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
@@ -221,13 +240,18 @@ int main() {
 					rect.w = FAKE_TILE_SIZE - 2;
 					rect.h = FAKE_TILE_SIZE - 2;
 
-					if (map[y][x] == 1) {
-						SDL_SetRenderDrawColor(ren, 0, 0, 122, 255);
-						SDL_RenderFillRect(ren, &rect);
-					} else {
-						SDL_SetRenderDrawColor(ren, 22, 22, 22, 255);
-						SDL_RenderFillRect(ren, &rect);
+					switch (map[y][x]) {
+						case 1:
+							SDL_SetRenderDrawColor(ren, 0, 0, 122, 255);
+							break;
+						case 2:
+							SDL_SetRenderDrawColor(ren, 122, 0, 0, 255);
+							break;
+						default:
+							SDL_SetRenderDrawColor(ren, 22, 22, 22, 255);
+							break;
 					}
+						SDL_RenderFillRect(ren, &rect);
 				}
 			}
 
@@ -260,6 +284,34 @@ int main() {
 	SDL_Quit();
 
 	return 0;
+}
+
+// Returns a char based on the colliding side: b, t, l, r
+char getSide(Eigen::Vector2d rayPos, Eigen::Vector2d dir) {
+
+	double tileX = floor(rayPos.x());
+	double tileY = floor(rayPos.y());
+
+	if (rayPos.y() - tileY < 0.005 && !map[int(tileY)-1][int(tileX)]) {
+		return 'b';
+	} else if (rayPos.y() - tileY > 0.995 && !map[int(tileY)+1][int(tileX)]) {
+		return 't';
+	}
+
+	if (rayPos.x() - tileX < 0.01) {
+		return 'l';
+	} else if (rayPos.x() - tileX > 0.99) {
+		return 'r';
+	}
+
+	return -1;
+}
+
+void lowerColor(SDL_Renderer* ren, Uint8 lower) {
+
+	Uint8 r, g, b, a;
+	SDL_GetRenderDrawColor(ren, &r, &g, &b, &a);
+	SDL_SetRenderDrawColor(ren, std::max(r-lower, 0), std::max(g-lower, 0), std::max(b-lower, 0), 255);
 }
 
 Eigen::Vector2d rotate(Eigen::Vector2d vec, double rads) {
