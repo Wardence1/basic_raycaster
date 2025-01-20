@@ -176,6 +176,7 @@ int main() {
 						if (!debug) {
 
 							double distance = sqrt(pow(rayPos.first - pos.x(), 2) + pow(rayPos.second - pos.y(), 2));
+							distance *= dir.dot(rayDir); // fix fisheye
 							int type = map[int(rayPos.second)][int(rayPos.first)];
 
 							// @todo
@@ -286,6 +287,7 @@ int main() {
 	return 0;
 }
 
+// @todo: this should be done differently when checking on each tile frame
 // Returns a char based on the colliding side: b, t, l, r
 char getSide(Eigen::Vector2d rayPos, Eigen::Vector2d dir) {
 
